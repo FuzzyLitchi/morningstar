@@ -34,9 +34,7 @@ impl<const N: usize> Bits<N> {
         assert!(from < to);
         assert_eq!(to - from + 1, LEN);
 
-        Bits {
-            inner: (self.inner & (u64::MAX >> (64 - N + from - 1))) >> (N - to),
-        }
+        Bits::new((self.inner & (u64::MAX >> (64 - N + from - 1))) >> (N - to))
     }
 
     pub fn len(self) -> usize {

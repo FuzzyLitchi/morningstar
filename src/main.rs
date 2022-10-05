@@ -11,7 +11,8 @@ fn main() {
 
 const ROUNDS: usize = 16;
 
-fn encrypt(plaintext: Bits<64>, _key: Bits<56>) -> Bits<64> {
+fn encrypt(plaintext: Bits<64>, key: Bits<64>) -> Bits<64> {
+    let keys = generate_keys(key);
     dbg!(plaintext);
 
     // Apply IP
@@ -20,15 +21,20 @@ fn encrypt(plaintext: Bits<64>, _key: Bits<56>) -> Bits<64> {
 
     // split
     let (mut u, mut v) = data.split::<32>();
+
+    println!("L {:#034b}", u.as_u64());
+    println!("R {:#034b}\n", v.as_u64());
+
     // Apply rounds
     for round in 1..=ROUNDS {
         println!("Round {}", round);
         // Apply Feistel function
-        let key = Bits::<48>::new(0);
+        let key = keys[round-1];
 
         // apply E
-        let e = u.permute(&E);
+        let e = v.permute(&E);
         println!("E {:#050b}", e.as_u64());
+        println!("fake E {:#050b}", e.as_u64());
 
         let keyed = e ^ key;
         println!("E^K {:#050b}", e.as_u64());
@@ -54,16 +60,17 @@ fn encrypt(plaintext: Bits<64>, _key: Bits<56>) -> Bits<64> {
         println!("P {:#034b}", p.as_u64());
 
         // xor p onto u
-        v = v ^ p;
+        u = u ^ p;
 
         println!("L {:#034b}", u.as_u64());
         println!("R {:#034b}\n", v.as_u64());
+
         // Swap sides
         (u, v) = (v, u);
     }
 
-    // un-swap the last swap, and concatenate them TODO: fix the left right thing
-    let data = u.concat(v);
+    // un-swap the last swap amd concatenate them
+    let data = v.concat(u);
 
     // Apply IP_INVERSE
     let ciphertext = data.permute(&IP_INVERSE);
@@ -117,9 +124,7 @@ fn generate_keys(key: Bits<64>) -> Vec<Bits<48>> {
     let mut cd = key.permute(&PC1);
     println!("cd[ 0] = {:#058b}", cd.as_u64());
 
-    // let key1 = cd.permute(&PC2);
-    // println!("k[ 1]  = {:#050b}", key0.as_u64());
-    // println!("k[ 1] = {:012x}", key0.as_u64());
+    let mut keys: Vec<Bits<48>> = Vec::with_capacity(ROUNDS);
 
     for i in 1..=ROUNDS {
         let shift = LSHIFT_MAP[i-1] as usize;
@@ -130,11 +135,13 @@ fn generate_keys(key: Bits<64>) -> Vec<Bits<48>> {
         cd = c.concat(d);
 
         let key = cd.permute(&PC2);
+        keys.push(key);
+
         println!("cd[{:2}] = {:#058b}", i, cd.as_u64());
         println!("k[{:2}]  = {:#050b}", i, key.as_u64());
     }
-    
-    unimplemented!();
+
+    keys
 }
 
 #[rustfmt::skip]
@@ -257,26 +264,26 @@ mod test {
     }
 
     #[test]
-    #[ignore = "we're not there yet"]
+    // #[ignore = "gah"]
     fn test_vector() {
         let plaintext: Bits<64> = Bits::new(0x4e6f772069732074);
 
         let key: Bits<64> = Bits::new(0x0123456789abcdef);
-        let key = trim_key(key);
+        println!("key  = {:#066b}", key.as_u64());
 
         assert_eq!(encrypt(plaintext, key).as_u64(), 0x3fa40e8a984d4815);
     }
 
     #[test]
-    fn one_round() {
+    fn zero_key() {
         let key: Bits<64> = Bits::new(0);
         let plaintext: Bits<64> = Bits::<64>::new(0);
 
-        let ciphertext = encrypt(plaintext, trim_key(key));
+        let ciphertext = encrypt(plaintext, key);
 
         assert_eq!(ciphertext.as_u64(), 0x8ca64de9c1b123a7);
     }
-
+    
     #[test]
     fn keys() {
         let key: Bits<64> = Bits::new(0xFF);
