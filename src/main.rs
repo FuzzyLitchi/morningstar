@@ -36,7 +36,7 @@ fn encrypt(plaintext: Bits<64>, _key: Bits<56>) -> Bits<64> {
         // apply S-box
         let mut sbox_output: u64 = 0;
 
-        for i in 0..8 {
+        for (i, sbox) in SBOX.iter().enumerate() {
             let slice: Bits<6> = keyed.range(i * 6 + 1, i * 6 + 6);
             let p = 2 * slice.get(1) as u64 + slice.get(6) as u64;
 
@@ -44,7 +44,7 @@ fn encrypt(plaintext: Bits<64>, _key: Bits<56>) -> Bits<64> {
 
             // Sbox i, row p and element n
             sbox_output <<= 4;
-            sbox_output |= SBOX[i][p as usize][n as usize] as u64;
+            sbox_output |= sbox[p as usize][n as usize] as u64;
         }
         let sbox_output: Bits<32> = Bits::new(sbox_output);
         println!("Sbox {:#034b}", sbox_output.as_u64());

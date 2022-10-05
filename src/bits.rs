@@ -1,4 +1,4 @@
-use std::ops::{BitXor, Index, Range};
+use std::ops::BitXor;
 
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
 pub struct Bits<const N: usize> {
@@ -9,9 +9,7 @@ impl<const N: usize> Bits<N> {
     pub fn new(inner: u64) -> Bits<N> {
         assert!(64 - inner.leading_zeros() as usize <= N);
 
-        Bits {
-            inner: inner.into(),
-        }
+        Bits { inner }
     }
 
     pub fn as_u64(self) -> u64 {
