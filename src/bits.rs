@@ -1,4 +1,4 @@
-use std::ops::BitXor;
+use std::ops::{BitXor, Index, Range};
 
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
 pub struct Bits<const N: usize> {
@@ -11,6 +11,33 @@ impl<const N: usize> Bits<N> {
 
         Bits {
             inner: inner.into(),
+        }
+    }
+
+    pub fn as_u64(self) -> u64 {
+        self.inner
+    }
+
+    /// Returns bits within the range, including the lower and upper bound.
+    /// GAH! I can't use this because reasons
+    pub fn const_range<const FROM: usize, const TO: usize>(self) -> Bits<{ TO - FROM + 1 }> {
+        assert!(TO <= N);
+        assert!(FROM > 0);
+        assert!(FROM < TO);
+
+        Bits {
+            inner: (self.inner & (u64::MAX >> (64 - N + FROM - 1))) >> (N - TO),
+        }
+    }
+
+    pub fn range<const LEN: usize>(self, from: usize, to: usize) -> Bits<LEN> {
+        assert!(to <= N);
+        assert!(from > 0);
+        assert!(from < to);
+        assert_eq!(to - from + 1, LEN);
+
+        Bits {
+            inner: (self.inner & (u64::MAX >> (64 - N + from - 1))) >> (N - to),
         }
     }
 
@@ -68,7 +95,7 @@ impl<const N: usize> Bits<N> {
             let i = i + 1;
 
             // dbg!(i, j);
-            output.set(*j as usize, self.get(i));
+            output.set(i, self.get(*j as usize));
         }
 
         output
@@ -100,15 +127,15 @@ mod test {
     #[test]
     fn ip_tranform() {
         let mut input = Bits::<64>::new(0);
-        // Set bit 5 to 1, which should be the 26th bit after the transform.
-        input.set(5, true);
+        // Set bit 26 to 1, which should be the 5th bit after the transform.
+        input.set(26, true);
 
         let output = input.permute(&IP);
         println!("{:?}", input);
         println!("{:?}", output);
 
         // Check tht only bit 26 is set
-        assert_eq!(output.get(26), true);
+        assert_eq!(output.get(5), true);
         assert_eq!(output.inner.count_ones(), 1);
 
         // Check that applying the inverse works
@@ -178,6 +205,20 @@ mod test {
         one_one.set(5, true);
 
         assert_eq!(one_one.inner, 0b0000_1000);
+    }
+
+    #[test]
+    fn test_range() {
+        let val: Bits<8> = Bits::new(0b0011_1100);
+
+        assert_eq!(val.const_range::<3, 6>().as_u64(), 0b1111);
+        assert_eq!(val.const_range::<3, 6>().len(), 4);
+
+        assert_eq!(val.const_range::<1, 2>().as_u64(), 0b00);
+        assert_eq!(val.const_range::<1, 2>().len(), 2);
+
+        assert_eq!(val.const_range::<7, 8>().as_u64(), 0b00);
+        assert_eq!(val.const_range::<7, 8>().len(), 2);
     }
 }
 
