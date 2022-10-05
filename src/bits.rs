@@ -1,4 +1,4 @@
-use std::ops::{BitXor, Shl};
+use std::ops::BitXor;
 
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
 pub struct Bits<const N: usize> {
@@ -6,6 +6,7 @@ pub struct Bits<const N: usize> {
 }
 
 impl<const N: usize> Bits<N> {
+    /// New bit array with the given value. Panics if there isn't enough bits to store the value.
     pub fn new(inner: u64) -> Bits<N> {
         assert!(64 - inner.leading_zeros() as usize <= N);
 
@@ -17,7 +18,6 @@ impl<const N: usize> Bits<N> {
     }
 
     /// Returns bits within the range, including the lower and upper bound.
-    /// GAH! I can't use this because reasons
     pub fn const_range<const FROM: usize, const TO: usize>(self) -> Bits<{ TO - FROM + 1 }> {
         assert!(TO <= N);
         assert!(FROM > 0);
@@ -28,15 +28,21 @@ impl<const N: usize> Bits<N> {
         }
     }
 
+    /// Returns bits within the range, including the lower and upper bound, but it has no const requirements.
     pub fn range<const LEN: usize>(self, from: usize, to: usize) -> Bits<LEN> {
         assert!(to <= N);
         assert!(from > 0);
         assert!(from < to);
         assert_eq!(to - from + 1, LEN);
 
-        Bits::new((self.inner & (u64::MAX >> (64 - N + from - 1))) >> (N - to))
+        // This is sound because from and to are within the bounds and from is less than to.
+        // It's also type safe because we check that the LEN type is correct.
+        Bits {
+            inner: (self.inner & (u64::MAX >> (64 - N + from - 1))) >> (N - to),
+        }
     }
 
+    /// Returns amount of bits
     pub fn len(self) -> usize {
         N
     }
@@ -49,6 +55,7 @@ impl<const N: usize> Bits<N> {
         (Bits { inner: lhs as u64 }, Bits { inner: rhs as u64 })
     }
 
+    /// Concatenate to bit arrays. Panics if the resulting bits are too long.
     pub fn concat<const M: usize>(self, other: Bits<M>) -> Bits<{ N + M }> {
         assert!(M + N <= 64, "Resulting bit array too long.");
 
@@ -79,6 +86,18 @@ impl<const N: usize> Bits<N> {
         }
     }
 
+    /// Applies a permutation as used in DES.
+    /// # Example
+    /// ```
+    /// # use morningstar::Bits;
+    /// // Copies the first bit 4 times followed by the rest.
+    /// let permutation = [1, 1, 1, 1, 2, 3, 4];
+    ///
+    /// let input: Bits<4> = Bits::new(0b1001);
+    /// let output = input.permute(&permutation);
+    /// assert_eq!(output.len(), 7);
+    /// assert_eq!(output.as_u64(), 0b1111001);
+    /// ```
     pub fn permute<const M: usize>(self, permutation: &[u8; M]) -> Bits<M> {
         let mut output = Bits::<M>::new(0);
 
@@ -97,9 +116,10 @@ impl<const N: usize> Bits<N> {
         output
     }
 
-    pub fn rotate_left(self, rhs: usize) -> Self {
+    /// Rotates the bits to the left (taking into account their width)
+    pub fn rotate_left(self, n: usize) -> Self {
         // We rotate the bits, and then mask off the uneeded high bits
-        let rotated = (self.inner << rhs) | (self.inner >> (N - rhs));
+        let rotated = (self.inner << n) | (self.inner >> (N - n));
         Bits {
             inner: rotated & (u64::MAX >> (64 - N)),
         }

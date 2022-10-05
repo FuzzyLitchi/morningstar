@@ -3,11 +3,7 @@
 #![allow(dead_code)]
 
 mod bits;
-use bits::Bits;
-
-fn main() {
-    println!("Hello, world!");
-}
+pub use bits::Bits;
 
 const ROUNDS: usize = 16;
 
@@ -263,8 +259,8 @@ mod test {
         encrypt(Bits::<64>::new(plaintext), Bits::new(0));
     }
 
+    // Test official DES test vector
     #[test]
-    // #[ignore = "gah"]
     fn test_vector() {
         let plaintext: Bits<64> = Bits::new(0x4e6f772069732074);
 
@@ -274,6 +270,7 @@ mod test {
         assert_eq!(encrypt(plaintext, key).as_u64(), 0x3fa40e8a984d4815);
     }
 
+    // Used http://styere.xyz/JS-DES.html to help debug this
     #[test]
     fn zero_key() {
         let key: Bits<64> = Bits::new(0);
@@ -285,7 +282,7 @@ mod test {
     }
     
     #[test]
-    fn keys() {
+    fn generate_keys_doesnt_panic() {
         let key: Bits<64> = Bits::new(0xFF);
         generate_keys(key);
     }
