@@ -89,6 +89,54 @@ fn trim_key(key: Bits<64>) -> Bits<56> {
         .concat(h)
 }
 
+const PC1: [u8; 56] = [
+    57,  49,  41,  33,  25,  17,   9,
+     1,  58,  50,  42,  34,  26,  18,
+    10,   2,  59,  51,  43,  35,  27,
+    19,  11,   3,  60,  52,  44,  36,
+    63,  55,  47,  39,  31,  23,  15,
+     7,  62,  54,  46,  38,  30,  22,
+    14,   6,  61,  53,  45,  37,  29,
+    21,  13,   5,  28,  20,  12,   4,
+];
+
+const PC2: [u8; 48] = [
+    14,  17,  11,  24,   1,   5,
+     3,   28,  15,  6,  21,  10,
+    23,  19,  12,   4,  26,   8,
+    16,   7,  27,  20,  13,   2,
+    41,  52,  31,  37,  47,  55,
+    30,  40,  51,  45,  33,  48,
+    44,  49,  39,  56,  34,  53,
+    46,  42,  50,  36,  29,  32,
+];
+
+const LSHIFT_MAP: [u8; 16] = [1, 1, 2, 2, 2, 2, 2, 2, 1, 2, 2, 2, 2, 2, 2, 1];
+
+fn generate_keys(key: Bits<64>) -> Vec<Bits<48>> {
+    let mut cd = key.permute(&PC1);
+    println!("cd[ 0] = {:#058b}", cd.as_u64());
+
+    // let key1 = cd.permute(&PC2);
+    // println!("k[ 1]  = {:#050b}", key0.as_u64());
+    // println!("k[ 1] = {:012x}", key0.as_u64());
+
+    for i in 1..=ROUNDS {
+        let shift = LSHIFT_MAP[i-1] as usize;
+
+        let (mut c, mut d) = cd.split::<28>();
+        c = c.rotate_left(shift);
+        d = d.rotate_left(shift);
+        cd = c.concat(d);
+
+        let key = cd.permute(&PC2);
+        println!("cd[{:2}] = {:#058b}", i, cd.as_u64());
+        println!("k[{:2}]  = {:#050b}", i, key.as_u64());
+    }
+    
+    unimplemented!();
+}
+
 #[rustfmt::skip]
 // 64 bits -> 64 bits
 const IP: [u8; 64] = [
@@ -227,5 +275,11 @@ mod test {
         let ciphertext = encrypt(plaintext, trim_key(key));
 
         assert_eq!(ciphertext.as_u64(), 0x8ca64de9c1b123a7);
+    }
+
+    #[test]
+    fn keys() {
+        let key: Bits<64> = Bits::new(0xFF);
+        generate_keys(key);
     }
 }

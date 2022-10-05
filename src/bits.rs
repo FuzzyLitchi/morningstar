@@ -1,4 +1,4 @@
-use std::ops::BitXor;
+use std::ops::{BitXor, Shl};
 
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
 pub struct Bits<const N: usize> {
@@ -97,6 +97,14 @@ impl<const N: usize> Bits<N> {
         }
 
         output
+    }
+
+    pub fn rotate_left(self, rhs: usize) -> Self {
+        // We rotate the bits, and then mask off the uneeded high bits
+        let rotated = (self.inner << rhs) | (self.inner >> (N - rhs));
+        Bits {
+            inner: rotated & (u64::MAX >> (64 - N)),
+        }
     }
 }
 
@@ -217,6 +225,14 @@ mod test {
 
         assert_eq!(val.const_range::<7, 8>().as_u64(), 0b00);
         assert_eq!(val.const_range::<7, 8>().len(), 2);
+    }
+
+    #[test]
+    fn test_rotate() {
+        let val: Bits<8> = Bits::new(0b0011_1100);
+
+        assert_eq!(val.rotate_left(2).as_u64(), 0b1111_0000);
+        assert_eq!(val.rotate_left(4).as_u64(), 0b1100_0011);
     }
 }
 
