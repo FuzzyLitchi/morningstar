@@ -42,11 +42,7 @@ fn estimate_linear_probability(alpha: Bits<64>, beta: Bits<64>, rounds: usize) {
             let ciphertext = weak_encrypt(plaintext, key, rounds);
 
             // println!("{:x}", cipher_diff.as_u64());
-            if alpha.dot_product(plaintext) ^ beta.dot_product(ciphertext) {
-                1
-            } else {
-                0
-            }
+            (alpha.dot_product(plaintext) ^ beta.dot_product(ciphertext)) as u64
         })
         .sum();
 
@@ -76,11 +72,7 @@ fn estimate_diff_probability(d_in: Bits<64>, d_out: Bits<64>, rounds: usize) {
             let cipher_diff = ciphertext_a ^ ciphertext_b;
 
             // println!("{:x}", cipher_diff.as_u64());
-            if cipher_diff.as_u64() == d_out.as_u64() {
-                1
-            } else {
-                0
-            }
+            (cipher_diff.as_u64() == d_out.as_u64()) as u64
         })
         .sum();
 
