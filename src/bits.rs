@@ -257,6 +257,7 @@ mod test {
         assert_eq!(val.rotate_left(4).as_u64(), 0b1100_0011);
     }
 
+    #[test]
     fn test_dot_product() {
         let val1: Bits<8> = Bits::new(0b0011_1100);
         let val2: Bits<8> = Bits::new(0b0010_1011);
@@ -272,12 +273,3 @@ mod test {
         assert_eq!(val3.dot_product(val2), false);
     }
 }
-
-// I want 1 indexing
-// left to right indexing (Msb)
-// constant generics (so we can have constant length bitarrays)
-
-// methods
-// u64.to_bits::<bit_width>() -> bits
-// bits.split() -> (u64, u64)
-// bits.permute(permuatation) -> bits
