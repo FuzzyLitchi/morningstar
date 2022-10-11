@@ -124,6 +124,10 @@ impl<const N: usize> Bits<N> {
             inner: rotated & (u64::MAX >> (64 - N)),
         }
     }
+
+    pub fn dot_product(self, other: Bits<N>) -> bool {
+        ((self.inner & other.inner).count_ones() & 1) == 1
+    }
 }
 
 impl<const N: usize> BitXor for Bits<N> {
@@ -251,6 +255,21 @@ mod test {
 
         assert_eq!(val.rotate_left(2).as_u64(), 0b1111_0000);
         assert_eq!(val.rotate_left(4).as_u64(), 0b1100_0011);
+    }
+
+    fn test_dot_product() {
+        let val1: Bits<8> = Bits::new(0b0011_1100);
+        let val2: Bits<8> = Bits::new(0b0010_1011);
+        let val3: Bits<8> = Bits::new(0b0010_1100);
+
+        assert_eq!(val1.dot_product(val2), false);
+        assert_eq!(val2.dot_product(val1), false);
+
+        assert_eq!(val1.dot_product(val3), true);
+        assert_eq!(val3.dot_product(val1), true);
+
+        assert_eq!(val2.dot_product(val3), false);
+        assert_eq!(val3.dot_product(val2), false);
     }
 }
 

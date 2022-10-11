@@ -7,7 +7,7 @@ pub use bits::Bits;
 
 const ROUNDS: usize = 16;
 
-fn encrypt(plaintext: Bits<64>, key: Bits<64>) -> Bits<64> {
+pub fn encrypt(plaintext: Bits<64>, key: Bits<64>) -> Bits<64> {
     let keys = generate_keys(key);
     dbg!(plaintext);
 
@@ -73,6 +73,63 @@ fn encrypt(plaintext: Bits<64>, key: Bits<64>) -> Bits<64> {
     ciphertext
 }
 
+pub fn weak_encrypt(plaintext: Bits<64>, key: Bits<64>, rounds: usize) -> Bits<64> {
+    let keys = generate_keys(key);
+
+    // split
+    let (mut u, mut v) = plaintext.split::<32>();
+
+    // println!("L {:#034b}", u.as_u64());
+    // println!("R {:#034b}\n", v.as_u64());
+
+    // Apply rounds
+    for round in 1..=rounds {
+        // println!("Round {}", round);
+        // Apply Feistel function
+        let key = keys[round-1];
+
+        // apply E
+        let e = v.permute(&E);
+        // println!("E {:#050b}", e.as_u64());
+        // println!("fake E {:#050b}", e.as_u64());
+
+        let keyed = e ^ key;
+        // println!("E^K {:#050b}", e.as_u64());
+
+        // apply S-box
+        let mut sbox_output: u64 = 0;
+
+        for (i, sbox) in SBOX.iter().enumerate() {
+            let slice: Bits<6> = keyed.range(i * 6 + 1, i * 6 + 6);
+            let p = 2 * slice.get(1) as u64 + slice.get(6) as u64;
+
+            let n = slice.const_range::<2, 5>().as_u64();
+
+            // Sbox i, row p and element n
+            sbox_output <<= 4;
+            sbox_output |= sbox[p as usize][n as usize] as u64;
+        }
+        let sbox_output: Bits<32> = Bits::new(sbox_output);
+        // println!("Sbox {:#034b}", sbox_output.as_u64());
+
+        // Apply P
+        let p = sbox_output.permute(&P);
+        // println!("P {:#034b}", p.as_u64());
+
+        // xor p onto u
+        u = u ^ p;
+
+        // println!("L {:#034b}", u.as_u64());
+        // println!("R {:#034b}\n", v.as_u64());
+
+        // Swap sides
+        (u, v) = (v, u);
+    }
+
+    // un-swap the last swap amd concatenate them
+    v.concat(u)
+}
+
 fn trim_key(key: Bits<64>) -> Bits<56> {
     let a: Bits<7> = key.const_range::<1, 7>();
     let b: Bits<7> = key.const_range::<9, 15>();
@@ -118,7 +175,7 @@ const LSHIFT_MAP: [u8; 16] = [1, 1, 2, 2, 2, 2, 2, 2, 1, 2, 2, 2, 2, 2, 2, 1];
 
 fn generate_keys(key: Bits<64>) -> Vec<Bits<48>> {
     let mut cd = key.permute(&PC1);
-    println!("cd[ 0] = {:#058b}", cd.as_u64());
+    // println!("cd[ 0] = {:#058b}", cd.as_u64());
 
     let mut keys: Vec<Bits<48>> = Vec::with_capacity(ROUNDS);
 
@@ -133,8 +190,8 @@ fn generate_keys(key: Bits<64>) -> Vec<Bits<48>> {
         let key = cd.permute(&PC2);
         keys.push(key);
 
-        println!("cd[{:2}] = {:#058b}", i, cd.as_u64());
-        println!("k[{:2}]  = {:#050b}", i, key.as_u64());
+        // println!("cd[{:2}] = {:#058b}", i, cd.as_u64());
+        // println!("k[{:2}]  = {:#050b}", i, key.as_u64());
     }
 
     keys
