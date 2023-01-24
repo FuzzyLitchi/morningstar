@@ -8,7 +8,7 @@ pub use bits::Bits;
 const ROUNDS: usize = 16;
 
 pub fn encrypt(plaintext: Bits<64>, key: Bits<64>) -> Bits<64> {
-    let keys = generate_keys(key);
+    let keys = generate_keys::<ROUNDS>(key);
     dbg!(plaintext);
 
     // Apply IP
@@ -23,9 +23,9 @@ pub fn encrypt(plaintext: Bits<64>, key: Bits<64>) -> Bits<64> {
 
     // Apply rounds
     for round in 1..=ROUNDS {
-        println!("Round {}", round);
+        println!("Round {round}");
         // Apply Feistel function
-        let key = keys[round-1];
+        let key = keys[round - 1];
 
         // apply E
         let e = v.permute(&E);
@@ -73,9 +73,7 @@ pub fn encrypt(plaintext: Bits<64>, key: Bits<64>) -> Bits<64> {
     ciphertext
 }
 
-pub fn weak_encrypt(plaintext: Bits<64>, key: Bits<64>, rounds: usize) -> Bits<64> {
-    let keys = generate_keys(key);
-
+pub fn weak_encrypt<const R: usize>(plaintext: Bits<64>, keys: &[Bits<48>; R]) -> Bits<64> {
     // split
     let (mut u, mut v) = plaintext.split::<32>();
 
@@ -83,10 +81,10 @@ pub fn weak_encrypt(plaintext: Bits<64>, key: Bits<64>, rounds: usize) -> Bits<6
     // println!("R {:#034b}\n", v.as_u64());
 
     // Apply rounds
-    for round in 1..=rounds {
+    for round in 1..=R {
         // println!("Round {}", round);
         // Apply Feistel function
-        let key = keys[round-1];
+        let key = keys[round - 1];
 
         // apply E
         let e = v.permute(&E);
@@ -149,6 +147,7 @@ fn trim_key(key: Bits<64>) -> Bits<56> {
         .concat(h)
 }
 
+#[rustfmt::skip]
 const PC1: [u8; 56] = [
     57,  49,  41,  33,  25,  17,   9,
      1,  58,  50,  42,  34,  26,  18,
@@ -160,6 +159,7 @@ const PC1: [u8; 56] = [
     21,  13,   5,  28,  20,  12,   4,
 ];
 
+#[rustfmt::skip]
 const PC2: [u8; 48] = [
     14,  17,  11,  24,   1,   5,
      3,   28,  15,  6,  21,  10,
@@ -173,14 +173,14 @@ const PC2: [u8; 48] = [
 
 const LSHIFT_MAP: [u8; 16] = [1, 1, 2, 2, 2, 2, 2, 2, 1, 2, 2, 2, 2, 2, 2, 1];
 
-fn generate_keys(key: Bits<64>) -> Vec<Bits<48>> {
+pub fn generate_keys<const R: usize>(key: Bits<64>) -> [Bits<48>; R] {
     let mut cd = key.permute(&PC1);
     // println!("cd[ 0] = {:#058b}", cd.as_u64());
 
-    let mut keys: Vec<Bits<48>> = Vec::with_capacity(ROUNDS);
+    let mut keys: [Bits<48>; R] = [Bits::new(0); R];
 
-    for i in 1..=ROUNDS {
-        let shift = LSHIFT_MAP[i-1] as usize;
+    for i in 1..=R {
+        let shift = LSHIFT_MAP[i - 1] as usize;
 
         let (mut c, mut d) = cd.split::<28>();
         c = c.rotate_left(shift);
@@ -188,7 +188,7 @@ fn generate_keys(key: Bits<64>) -> Vec<Bits<48>> {
         cd = c.concat(d);
 
         let key = cd.permute(&PC2);
-        keys.push(key);
+        keys[i - 1] = key;
 
         // println!("cd[{:2}] = {:#058b}", i, cd.as_u64());
         // println!("k[{:2}]  = {:#050b}", i, key.as_u64());
@@ -337,10 +337,10 @@ mod test {
 
         assert_eq!(ciphertext.as_u64(), 0x8ca64de9c1b123a7);
     }
-    
+
     #[test]
     fn generate_keys_doesnt_panic() {
         let key: Bits<64> = Bits::new(0xFF);
-        generate_keys(key);
+        generate_keys::<ROUNDS>(key);
     }
 }

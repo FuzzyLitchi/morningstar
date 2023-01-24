@@ -52,7 +52,7 @@ impl<const N: usize> Bits<N> {
     pub fn split<const M: usize>(self) -> (Bits<{ M }>, Bits<{ N - M }>) {
         let lhs = self.inner >> (N / 2);
         let rhs = self.inner & (u64::MAX >> (64 - N / 2));
-        (Bits { inner: lhs as u64 }, Bits { inner: rhs as u64 })
+        (Bits { inner: lhs }, Bits { inner: rhs })
     }
 
     /// Concatenate to bit arrays. Panics if the resulting bits are too long.
