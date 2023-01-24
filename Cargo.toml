@@ -12,5 +12,5 @@ name = "jupiter"
 rand = "0.8.5"
 rayon = "1.5.3"
 
-# [profile.release]
-# debug = 1
+[profile.release]
+debug = 1

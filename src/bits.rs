@@ -272,4 +272,41 @@ mod test {
         assert_eq!(val2.dot_product(val3), false);
         assert_eq!(val3.dot_product(val2), false);
     }
+
+    #[test]
+    #[ignore = "doing this optimization later"]
+    fn test_fast_permute() {
+        // const P: [u8; 32] = [
+        //     16,  7, 20, 21, 29, 12, 28, 17,
+        //     1, 15, 23, 26,  5, 18, 31, 10,
+        //     2,  8, 24, 14, 32, 27,  3,  9,
+        //     19, 13, 30,  6, 22, 11,  4, 25,
+        // ];
+        const WIDTH: usize = 8;
+        // [1, 2, 3, 4, 5, 6, 7, 8]; // Identity
+        //
+        // this is like [0, 1, 2, 3, 4, 5, 6, 7] if we do 0-index
+        // `pext input 0b1111_1111`
+
+        const TEST_PERMUTATION: [u8; WIDTH] = [2, 3, 5, 8, 1, 4, 6, 7];
+        // output[i] = input[TEST_PERMUTATION[i]]
+        // `pext 0b0110_1001` << 4 | `pext 0b1001_0110`
+        use core::arch::x86_64::_pext_u64;
+
+        for i in 1..=WIDTH {
+            let input: Bits<WIDTH> = Bits::new(1 << (WIDTH - i));
+
+            let faster = Bits::new(unsafe {
+                _pext_u64(input.as_u64(), 0b0110_1001) << 4 | _pext_u64(input.as_u64(), 0b1001_0110)
+            });
+
+            println!(
+                "{:#010b} {:#010b} {:#010b}",
+                input.as_u64(),
+                input.permute(&TEST_PERMUTATION).as_u64(),
+                faster.as_u64()
+            );
+            assert_eq!(input.permute(&TEST_PERMUTATION), faster)
+        }
+    }
 }

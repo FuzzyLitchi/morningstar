@@ -87,7 +87,7 @@ pub fn weak_encrypt<const R: usize>(plaintext: Bits<64>, keys: &[Bits<48>; R]) -
         let key = keys[round - 1];
 
         // apply E
-        let e = v.permute(&E);
+        let e = fast_expand(v);
         // println!("E {:#050b}", e.as_u64());
         // println!("fake E {:#050b}", e.as_u64());
 
@@ -126,6 +126,21 @@ pub fn weak_encrypt<const R: usize>(plaintext: Bits<64>, keys: &[Bits<48>; R]) -
 
     // un-swap the last swap amd concatenate them
     v.concat(u)
+}
+
+pub fn fast_expand(input: Bits<32>) -> Bits<48> {
+    let output = (input.as_u64() & 1) << 47 // place this bit all the way to the left
+        | (input.range::<5>(1, 5).as_u64() << 42) 
+        | (input.range::<6>(4, 9).as_u64() << 36) 
+        | (input.range::<6>(8, 13).as_u64() << 30)
+        | (input.range::<6>(12, 17).as_u64() << 24)
+        | (input.range::<6>(16, 21).as_u64() << 18)
+        | (input.range::<6>(20, 25).as_u64() << 12)
+        | (input.range::<6>(24, 29).as_u64() << 6)
+        | (input.range::<5>(28, 32).as_u64()) << 1
+        | input.as_u64() >> 31;
+    
+    Bits::new(output)
 }
 
 fn trim_key(key: Bits<64>) -> Bits<56> {
@@ -342,5 +357,26 @@ mod test {
     fn generate_keys_doesnt_panic() {
         let key: Bits<64> = Bits::new(0xFF);
         generate_keys::<ROUNDS>(key);
+    }
+
+    #[test]
+    fn test_fast_expansion() {
+        const WIDTH: usize = 32;
+
+        for i in 1..=WIDTH {
+            let input: Bits<WIDTH> = Bits::new(1 << (WIDTH - i));
+
+            let output = input.permute(&crate::E);
+
+            let fast = fast_expand(input);
+
+            println!(
+                "{:#034b}\n{:#050b}\n{:#050b}",
+                input.as_u64(),
+                output.as_u64(),
+                fast.as_u64()
+            );
+            assert_eq!(output.as_u64(), fast.as_u64())
+        }
     }
 }
