@@ -4,6 +4,7 @@
 
 mod bits;
 pub use bits::Bits;
+use std::arch::asm;
 
 const ROUNDS: usize = 16;
 
@@ -111,7 +112,7 @@ pub fn weak_encrypt<const R: usize>(plaintext: Bits<64>, keys: &[Bits<48>; R]) -
         // println!("Sbox {:#034b}", sbox_output.as_u64());
 
         // Apply P
-        let p = sbox_output.permute(&P);
+        let p = fast_p_permute(sbox_output);
         // println!("P {:#034b}", p.as_u64());
 
         // xor p onto u
@@ -130,8 +131,8 @@ pub fn weak_encrypt<const R: usize>(plaintext: Bits<64>, keys: &[Bits<48>; R]) -
 
 pub fn fast_expand(input: Bits<32>) -> Bits<48> {
     let output = (input.as_u64() & 1) << 47 // place this bit all the way to the left
-        | (input.range::<5>(1, 5).as_u64() << 42) 
-        | (input.range::<6>(4, 9).as_u64() << 36) 
+        | (input.range::<5>(1, 5).as_u64() << 42)
+        | (input.range::<6>(4, 9).as_u64() << 36)
         | (input.range::<6>(8, 13).as_u64() << 30)
         | (input.range::<6>(12, 17).as_u64() << 24)
         | (input.range::<6>(16, 21).as_u64() << 18)
@@ -139,8 +140,36 @@ pub fn fast_expand(input: Bits<32>) -> Bits<48> {
         | (input.range::<6>(24, 29).as_u64() << 6)
         | (input.range::<5>(28, 32).as_u64()) << 1
         | input.as_u64() >> 31;
-    
+
     Bits::new(output)
+}
+
+#[inline(always)]
+/// 32-bit pext instruction
+unsafe fn pext_u32(a: u32, mask: u32) -> u32 {
+    let value;
+    asm!(
+        "pext {0:e}, {1:e}, {2:e}",
+        out(reg) value,
+        in(reg) a,
+        in(reg) mask
+    );
+
+    value
+}
+
+/// https://programming.sirrida.de/calcperm.php
+pub fn fast_p_permute(input: Bits<32>) -> Bits<32> {
+    let mut x = input.as_u64() as u32;
+    unsafe {
+        x = (pext_u32(x, 0xf801371f) << 16) | pext_u32(x, 0x07fec8e0);
+        x = (pext_u32(x, 0xce896751) << 16) | pext_u32(x, 0x317698ae);
+        x = (pext_u32(x, 0xd8cc3a95) << 16) | pext_u32(x, 0x2733c56a);
+        x = (pext_u32(x, 0x6ca635aa) << 16) | pext_u32(x, 0x9359ca55);
+        x = (pext_u32(x, 0x69a59996) << 16) | pext_u32(x, 0x965a6669);
+    }
+
+    Bits::new(x as u64)
 }
 
 fn trim_key(key: Bits<64>) -> Bits<56> {
@@ -372,6 +401,27 @@ mod test {
 
             println!(
                 "{:#034b}\n{:#050b}\n{:#050b}",
+                input.as_u64(),
+                output.as_u64(),
+                fast.as_u64()
+            );
+            assert_eq!(output.as_u64(), fast.as_u64())
+        }
+    }
+
+    #[test]
+    fn test_fast_p_permute() {
+        const WIDTH: usize = 32;
+
+        for i in 1..=WIDTH {
+            let input: Bits<WIDTH> = Bits::new(1 << (WIDTH - i));
+
+            let output = input.permute(&crate::P);
+
+            let fast = fast_p_permute(input);
+
+            println!(
+                "{:#034b}\n{:#034b}\n{:#034b}",
                 input.as_u64(),
                 output.as_u64(),
                 fast.as_u64()

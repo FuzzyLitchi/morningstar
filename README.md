@@ -22,3 +22,5 @@ Current best runtime 3.885 seconds
 remove asserts (and losing some of the type guarentees) makes it run at 2.765 seconds. about 1.1 seconds less. 28% decrease. Small potatoes
 
 Made expansion fast. now it's 1.846 sec with no other optimization. :sunglasses:
+
+Made the P permutation fast. now it's 0.602 seconds. I don't think opt-level=3 or debug_asserts are gonna do much.
